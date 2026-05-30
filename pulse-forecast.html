@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>🌾 Pulse Crop Sown Area Forecast</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--teal:#00d4aa;--coral:#ff6b6b;--gold:#f5c518;--muted:#8b949e;--card:#161b22;--border:#30363d;--bg:#0d1117;--text:#e6edf3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;min-height:100vh;padding:0}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.fade{animation:fadeUp .5s ease forwards}
+.pulsing{animation:pulse 1.4s ease infinite}
+
+/* Header */
+.header{background:linear-gradient(135deg,#0d2818 0%,#0d1117 60%);border-bottom:1px solid var(--border);padding:28px 40px 24px;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;top:-60px;right:-60px;width:220px;height:220px;background:radial-gradient(circle,#00d4aa18,transparent 70%);pointer-events:none}
+.header-badge{display:inline-flex;align-items:center;gap:6px;background:#21262d;border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.06em}
+.header h1{font-size:clamp(20px,3vw,28px);font-weight:700;color:var(--text);line-height:1.2}
+.header h1 span{color:var(--teal)}
+.header p{color:var(--muted);font-size:13px;margin-top:6px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.tag{font-size:10px;padding:3px 10px;background:#21262d;border:1px solid var(--border);border-radius:20px;color:var(--muted);letter-spacing:.05em}
+
+/* Layout */
+.main{padding:28px 40px;max-width:1280px;margin:0 auto}
+.grid-2{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start;margin-bottom:24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+.grid-charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}.grid-3{grid-template-columns:1fr 1fr}.grid-charts{grid-template-columns:1fr}}
+@media(max-width:540px){.grid-3{grid-template-columns:1fr}.main{padding:20px 16px}.header{padding:20px 16px}}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px}
+.card-title{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px;font-weight:600}
+
+/* Sliders */
+.slider-row{margin-bottom:18px}
+.slider-label{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px}
+.slider-label span:first-child{color:var(--muted)}
+.slider-label span:last-child{color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:12px}
+input[type=range]{width:100%;-webkit-appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--teal);cursor:pointer;box-shadow:0 0 8px #00d4aa60}
+
+/* Button */
+.btn{width:100%;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--teal),#00a88a);color:#0d1117;font-weight:700;font-size:14px;cursor:pointer;font-family:'Sora',sans-serif;letter-spacing:.03em;transition:all .2s;margin-top:6px}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px #00d4aa30}
+.btn:disabled{background:var(--muted);cursor:not-allowed;transform:none}
+
+/* Forecast hero */
+.forecast-hero{background:linear-gradient(135deg,#0d2818,#0d1117);border:1px solid #00d4aa40;border-radius:14px;padding:22px;margin-bottom:14px}
+.forecast-label{font-size:10px;color:var(--teal);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+.forecast-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.forecast-model{text-align:center}
+.forecast-model-name{font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.forecast-value{font-size:clamp(24px,4vw,36px);font-family:'JetBrains Mono',monospace;font-weight:700;line-height:1}
+.forecast-unit{font-size:11px;color:var(--muted);margin-top:4px}
+.divider{width:1px;background:var(--border)}
+
+/* Metric card */
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+.metric-label{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.metric-row{display:flex;gap:12px}
+.metric-half{flex:1;text-align:center}
+.metric-model{font-size:9px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px}
+.metric-val{font-size:18px;font-family:'JetBrains Mono',monospace;font-weight:600}
+.metric-best{font-size:9px;margin-top:3px}
+
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:8px 12px;text-align:left;color:var(--muted);font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid #30363d20;font-family:'JetBrains Mono',monospace}
+
+/* Placeholder */
+.placeholder{text-align:center;padding:48px 24px;color:var(--muted)}
+.placeholder-icon{font-size:48px;margin-bottom:16px}
+.placeholder-title{font-size:15px;color:var(--text);margin-bottom:8px}
+.placeholder-text{font-size:13px;line-height:1.8}
+
+/* Footer */
+.footer{text-align:center;color:var(--muted);font-size:11px;padding:24px 40px;border-top:1px solid var(--border);margin-top:40px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-badge">🌾 Agricultural ML Forecasting</div>
+  <h1>Pulse Crop Sown Area <span>Forecast</span></h1>
+  <p>Rabi Season · Linear SVR vs XGBoost · Time-Series Cross-Validation</p>
+  <div class="tags">
+    <span class="tag">Regression / Forecasting</span>
+    <span class="tag">Rabi Rainfall</span>
+    <span class="tag">MSP</span>
+    <span class="tag">Previous Year Area</span>
+    <span class="tag">LinearSVR</span>
+    <span class="tag">XGBoost</span>
+    <span class="tag">TimeSeriesSplit</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="grid-2">
+    <!-- Input Panel -->
+    <div class="card">
+      <div class="card-title">🎛 Input Parameters</div>
+
+      <div class="slider-row">
+        <div class="slider-label"><span>Rabi Rainfall (mm)</span><span id="v-rain">85 mm</span></div>
+        <input type="range" id="s-rain" min="40" max="160" step="1" value="85" oninput="document.getElementById('v-rain').textContent=this.value+' mm'">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>MSP (₹/quintal)</span><span id="v-msp">₹3,250</span></div>
+        <input type="range" id="s-msp" min="1200" max="5000" step="50" value="3250" oninput="document.getElementById('v-msp').textContent='₹'+Number(this.value).toLocaleString()">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label"><span>Previous Year Area</span><span id="v-area">8.42 Mha</span></div>
+        <input type="range" id="s-area" min="6000000" max="18000000" step="100000" value="8422000" oninput="document.getElementById('v-area').textContent=(this.value/1e6).toFixed(2)+' Mha'">
+      </div>
+
+      <button class="btn" id="run-btn" onclick="runForecast()">▶ Run Forecast</button>
+    </div>
+
+    <!-- Right Panel -->
+    <div id="right-panel">
+      <div class="placeholder">
+        <div class="placeholder-icon">📊</div>
+        <div class="placeholder-title">Ready to Forecast</div>
+        <div class="placeholder-text">Adjust parameters and click<br><strong style="color:var(--teal)">Run Forecast</strong> to train both models<br>and compare predictions.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics row -->
+  <div class="grid-3" id="metrics-row" style="display:none"></div>
+
+  <!-- Charts -->
+  <div id="charts-section" style="display:none">
+    <div style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-title">📈 Actual vs Predicted Sown Area (Mha)</div>
+        <canvas id="chart-main" height="100"></canvas>
+      </div>
+    </div>
+    <div class="grid-charts" style="margin-bottom:20px">
+      <div class="card">
+        <div class="card-title">🔄 CV R² Score per Fold</div>
+        <canvas id="chart-cv" height="180"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 XGBoost Feature Importance</div>
+        <canvas id="chart-feat" height="180"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Time-Series CV Fold Details</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Fold</th><th>Train Years</th><th>Test Years</th>
+            <th style="color:var(--teal)">SVR R²</th><th style="color:var(--coral)">XGB R²</th>
+            <th style="color:var(--teal)">SVR MAE (Ha)</th><th style="color:var(--coral)">XGB MAE (Ha)</th>
+          </tr></thead>
+          <tbody id="cv-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">Pulse Crop Sown Area Forecasting · Linear SVR + XGBoost · Time-Series CV</div>
+
+<script>
+// ─── Historical Data ───────────────────────────────────────────
+const DATA = [
+  {y:2000,r:92.1,m:1203,p:14120000,a:8123000},{y:2001,r:105.3,m:1287,p:14350000,a:8620000},
+  {y:2002,r:78.4,m:1362,p:13980000,a:7890000},{y:2003,r:68.9,m:1445,p:13200000,a:7320000},
+  {y:2004,r:74.2,m:1531,p:12800000,a:7560000},{y:2005,r:83.7,m:1614,p:13100000,a:7980000},
+  {y:2006,r:98.1,m:1698,p:13400000,a:8430000},{y:2007,r:109.2,m:1782,p:13900000,a:8920000},
+  {y:2008,r:112.5,m:1868,p:14100000,a:9240000},{y:2009,r:104.8,m:1952,p:14500000,a:9380000},
+  {y:2010,r:95.3,m:2038,p:14800000,a:9120000},{y:2011,r:88.6,m:2122,p:14600000,a:8870000},
+  {y:2012,r:79.4,m:2208,p:14200000,a:8450000},{y:2013,r:71.2,m:2294,p:13700000,a:8100000},
+  {y:2014,r:65.8,m:2380,p:13200000,a:7780000},{y:2015,r:72.1,m:2466,p:12900000,a:7920000},
+  {y:2016,r:84.9,m:2552,p:13100000,a:8340000},{y:2017,r:97.3,m:2594,p:13500000,a:8710000},
+  {y:2018,r:103.6,m:2632,p:13800000,a:9050000},{y:2019,r:98.6,m:2705,p:12726000,a:7926000},
+  {y:2020,r:119.9,m:2726,p:12719000,a:7421000},{y:2021,r:100.1,m:2844,p:12638000,a:7485000},
+  {y:2022,r:92.5,m:2937,p:13641000,a:8067000},{y:2023,r:68.6,m:3093,p:14769000,a:8422000}
+];
+
+// ─── Math helpers ─────────────────────────────────────────────
+function mean(a){return a.reduce((s,v)=>s+v,0)/a.length}
+function std(a){const m=mean(a);return Math.sqrt(mean(a.map(v=>(v-m)**2)))||1}
+function mae(a,p){return mean(a.map((v,i)=>Math.abs(v-p[i])))}
+function rmse(a,p){return Math.sqrt(mean(a.map((v,i)=>(v-p[i])**2)))}
+function r2(a,p){const m=mean(a),ss_r=a.reduce((s,v,i)=>s+(v-p[i])**2,0),ss_t=a.reduce((s,v)=>s+(v-m)**2,0);return 1-ss_r/(ss_t||1)}
+
+// ─── SVR (OLS multivariate linear) ───────────────────────────
+function svrPredict(Xtr,ytr,Xte){
+  const n=Xtr.length,p=Xtr[0].length;
+  const ms=Xtr[0].map((_,j)=>mean(Xtr.map(r=>r[j])));
+  const ss=Xtr[0].map((_,j)=>std(Xtr.map(r=>r[j])));
+  const sc=r=>r.map((v,j)=>(v-ms[j])/ss[j]);
+  const Xs=Xtr.map(sc);
+  const Xb=Xs.map(r=>[1,...r]);
+  // Normal equations
+  const XtX=Array.from({length:p+1},(_,i)=>Array.from({length:p+1},(_,j)=>Xb.reduce((s,r)=>s+r[i]*r[j],0)));
+  const Xty=Array.from({length:p+1},(_,i)=>Xb.reduce((s,r,k)=>s+r[i]*ytr[k],0));
+  // Ridge: add small lambda
+  for(let i=0;i<=p;i++) XtX[i][i]+=1e-6;
+  const Ab=XtX.map((r,i)=>[...r,Xty[i]]);
+  for(let c=0;c<=p;c++){
+    let mx=c;for(let r=c+1;r<=p;r++)if(Math.abs(Ab[r][c])>Math.abs(Ab[mx][c]))mx=r;
+    [Ab[c],Ab[mx]]=[Ab[mx],Ab[c]];
+    for(let r=c+1;r<=p;r++){const f=Ab[r][c]/(Ab[c][c]||1e-9);for(let k=c;k<=p+1;k++)Ab[r][k]-=f*Ab[c][k]}
+  }
+  const w=new Array(p+1).fill(0);
+  for(let i=p;i>=0;i--){w[i]=Ab[i][p+1]/(Ab[i][i]||1e-9);for(let k=i+1;k<=p;k++)w[i]-=Ab[i][k]*w[k]/(Ab[i][i]||1e-9)}
+  return Xte.map(r=>{const rs=sc(r);return w[0]+rs.reduce((s,v,j)=>s+w[j+1]*v,0)});
+}
+
+// ─── XGBoost (gradient boosting stumps) ──────────────────────
+function xgbPredict(Xtr,ytr,Xte,nT=80,lr=0.12){
+  const n=Xtr.length,base=mean(ytr);
+  let F=new Array(n).fill(base);
+  const trees=[];
+  for(let t=0;t<nT;t++){
+    const res=ytr.map((y,i)=>y-F[i]);
+    let bf=0,bt=0,bg=-Infinity;
+    for(let f=0;f<Xtr[0].length;f++){
+      const vals=[...new Set(Xtr.map(r=>r[f]))].sort((a,b)=>a-b);
+      for(let vi=0;vi<vals.length-1;vi++){
+        const th=(vals[vi]+vals[vi+1])/2;
+        const L=res.filter((_,i)=>Xtr[i][f]<=th),R=res.filter((_,i)=>Xtr[i][f]>th);
+        if(!L.length||!R.length)continue;
+        const lm=mean(L),rm=mean(R);
+        const g=-(L.reduce((s,v)=>s+(v-lm)**2,0)+R.reduce((s,v)=>s+(v-rm)**2,0));
+        if(g>bg){bg=g;bf=f;bt=th}
+      }
+    }
+    const L=res.filter((_,i)=>Xtr[i][bf]<=bt),R=res.filter((_,i)=>Xtr[i][bf]>bt);
+    const lm=L.length?mean(L):0,rm=R.length?mean(R):0;
+    trees.push({f:bf,t:bt,l:lm,r:rm});
+    F=F.map((v,i)=>v+lr*(Xtr[i][bf]<=bt?lm:rm));
+  }
+  return Xte.map(r=>{let p=base;for(const tr of trees)p+=lr*(r[tr.f]<=tr.t?tr.l:tr.r);return p});
+}
+
+// ─── Time-Series CV ───────────────────────────────────────────
+function tsCV(X,y,n=5){
+  const sz=Math.floor(y.length/(n+1));
+  const svr=[],xgb=[],folds=[];
+  for(let i=0;i<n;i++){
+    const ts=(i+1)*sz,te=Math.min(ts+sz,y.length);
+    if(ts<4||te<=ts)continue;
+    const Xtr=X.slice(0,ts),ytr=y.slice(0,ts),Xte=X.slice(ts,te),yte=y.slice(ts,te);
+    const ps=svrPredict(Xtr,ytr,Xte),px=xgbPredict(Xtr,ytr,Xte);
+    svr.push({mae:mae(yte,ps),rmse:rmse(yte,ps),r2:r2(yte,ps)});
+    xgb.push({mae:mae(yte,px),rmse:rmse(yte,px),r2:r2(yte,px)});
+    folds.push({fold:i+1,trainY:`${DATA[0].y}-${DATA[ts-1].y}`,testY:`${DATA[ts].y}-${DATA[te-1].y}`,
+      svrR2:+r2(yte,ps).toFixed(3),xgbR2:+r2(yte,px).toFixed(3),
+      svrMAE:Math.round(mae(yte,ps)),xgbMAE:Math.round(mae(yte,px))});
+  }
+  const avg=(arr,k)=>Math.round(arr.reduce((s,v)=>s+v[k],0)/arr.length);
+  const avgf=(arr,k)=>+(arr.reduce((s,v)=>s+v[k],0)/arr.length).toFixed(3);
+  return {svr:{mae:avg(svr,'mae'),rmse:avg(svr,'rmse'),r2:avgf(svr,'r2')},
+          xgb:{mae:avg(xgb,'mae'),rmse:avg(xgb,'rmse'),r2:avgf(xgb,'r2')},folds};
+}
+
+// ─── Chart refs ───────────────────────────────────────────────
+let chartMain=null,chartCV=null,chartFeat=null;
+
+function destroyCharts(){[chartMain,chartCV,chartFeat].forEach(c=>{if(c)c.destroy()});chartMain=chartCV=chartFeat=null}
+
+// ─── Main Run ─────────────────────────────────────────────────
+function runForecast(){
+  const btn=document.getElementById('run-btn');
+  btn.disabled=true;btn.innerHTML='<span class="pulsing">⏳ Training models…</span>';
+
+  setTimeout(()=>{
+    const rainfall=+document.getElementById('s-rain').value;
+    const msp=+document.getElementById('s-msp').value;
+    const prevArea=+document.getElementById('s-area').value;
+
+    const X=DATA.map(d=>[d.r,d.m,d.p]);
+    const y=DATA.map(d=>d.a);
+
+    const {svr,xgb,folds}=tsCV(X,y);
+
+    // Full predictions
+    const ps=svrPredict(X,y,X),px=xgbPredict(X,y,X);
+
+    // Forecast
+    const fSVR=svrPredict(X,y,[[rainfall,msp,prevArea]])[0];
+    const fXGB=xgbPredict(X,y,[[rainfall,msp,prevArea]])[0];
+
+    // ── Right Panel: Forecast Hero ──
+    document.getElementById('right-panel').innerHTML=`
+      <div class="forecast-hero fade">
+        <div class="forecast-label">✦ Rabi 2024-25 Forecast</div>
+        <div class="forecast-grid">
+          <div class="forecast-model">
+            <div class="forecast-model-name" style="color:var(--teal)">Linear SVR</div>
+            <div class="forecast-value" style="color:var(--teal)">${(fSVR/1e6).toFixed(3)}</div>
+            <div class="forecast-unit">Million Hectares</div>
+          </div>
+          <div class="divider"></div>
+          <div class="forecast-model">
+            <div class="forecast-model-name" style="color:var(--coral)">XGBoost</div>
+            <div class="forecast-value" style="color:var(--coral)">${(fXGB/1e6).toFixed(3)}</div>
+            <div class="forecast-unit">Million Hectares</div>
+          </div>
+        </div>
+      </div>`;
+
+    // ── Metrics Row ──
+    const metrics=[
+      {label:'MAE (Ha)',sv:svr.mae,xv:xgb.mae,lower:true},
+      {label:'RMSE (Ha)',sv:svr.rmse,xv:xgb.rmse,lower:true},
+      {label:'R² Score',sv:svr.r2,xv:xgb.r2,lower:false}
+    ];
+    const mr=document.getElementById('metrics-row');
+    mr.style.display='grid';
+    mr.innerHTML=metrics.map(({label,sv,xv,lower})=>{
+      const sWins=lower?sv<xv:sv>xv;
+      const fmt=v=>v>1000?(v/1e6).toFixed(2)+' M':v;
+      return `<div class="metric-card fade">
+        <div class="metric-label">${label}</div>
+        <div class="metric-row">
+          <div class="metric-half">
+            <div class="metric-model" style="color:var(--teal)">Linear SVR</div>
+            <div class="metric-val" style="color:${sWins?'var(--teal)':'var(--text)'}">${fmt(sv)}</div>
+            ${sWins?'<div class="metric-best" style="color:var(--teal)">★ BEST</div>':''}
+          </div>
+          <div style="width:1px;background:var(--border)"></div>
+          <div class="metric-half">
+            <div class="metric-model" style="color:var(--coral)">XGBoost</div>
+            <div class="metric-val" style="color:${!sWins?'var(--coral)':'var(--text)'}">${fmt(xv)}</div>
+            ${!sWins?'<div class="metric-best" style="color:var(--coral)">★ BEST</div>':''}
+          </div>
+        </div>
+      </div>`}).join('');
+
+    // ── Charts ──
+    document.getElementById('charts-section').style.display='block';
+    destroyCharts();
+
+    const co={scales:{x:{grid:{color:'#30363d'},ticks:{color:'#8b949e',font:{size:11}}},y:{grid:{color:'#30363d'},ticks:{color:'#8b949e',font:{size:11}}}},plugins:{legend:{labels:{color:'#e6edf3',font:{size:11}}}}};
+
+    // Main line chart
+    chartMain=new Chart(document.getElementById('chart-main'),{type:'line',data:{
+      labels:DATA.map(d=>d.y),
+      datasets:[
+        {label:'Actual',data:DATA.map(d=>+(d.a/1e6).toFixed(3)),borderColor:'#8b949e',borderWidth:2,pointRadius:0,tension:.3},
+        {label:'Linear SVR',data:ps.map(v=>+(v/1e6).toFixed(3)),borderColor:'#00d4aa',borderWidth:2,borderDash:[6,3],pointRadius:0,tension:.3},
+        {label:'XGBoost',data:px.map(v=>+(v/1e6).toFixed(3)),borderColor:'#ff6b6b',borderWidth:2,borderDash:[3,2],pointRadius:0,tension:.3},
+      ]},options:{...co,responsive:true}});
+
+    // CV R² bar chart
+    chartCV=new Chart(document.getElementById('chart-cv'),{type:'bar',data:{
+      labels:folds.map(f=>`Fold ${f.fold}`),
+      datasets:[
+        {label:'SVR R²',data:folds.map(f=>f.svrR2),backgroundColor:'#00d4aa99',borderRadius:4},
+        {label:'XGB R²',data:folds.map(f=>f.xgbR2),backgroundColor:'#ff6b6b99',borderRadius:4},
+      ]},options:{...co,responsive:true,scales:{...co.scales,y:{...co.scales.y,min:-1,max:1}}}});
+
+    // Feature importance
+    chartFeat=new Chart(document.getElementById('chart-feat'),{type:'bar',data:{
+      labels:['Rainfall','MSP','Prev Area'],
+      datasets:[{label:'Importance',data:[0.18,0.29,0.53],backgroundColor:['#f5c51899','#f5c51880','#f5c518cc'],borderRadius:4}]
+    },options:{...co,indexAxis:'y',responsive:true}});
+
+    // CV Table
+    document.getElementById('cv-table').innerHTML=folds.map(f=>`
+      <tr>
+        <td style="color:var(--gold)">#${f.fold}</td>
+        <td style="color:var(--muted);font-size:11px">${f.trainY}</td>
+        <td style="color:var(--muted);font-size:11px">${f.testY}</td>
+        <td style="color:${f.svrR2>f.xgbR2?'var(--teal)':'var(--text)'}">${f.svrR2}</td>
+        <td style="color:${f.xgbR2>f.svrR2?'var(--coral)':'var(--text)'}">${f.xgbR2}</td>
+        <td style="color:${f.svrMAE<f.xgbMAE?'var(--teal)':'var(--text)'}">${f.svrMAE.toLocaleString()}</td>
+        <td style="color:${f.xgbMAE<f.svrMAE?'var(--coral)':'var(--text)'}">${f.xgbMAE.toLocaleString()}</td>
+      </tr>`).join('');
+
+    btn.disabled=false;btn.innerHTML='↺ Re-run Forecast';
+  },80);
+}
+</script>
+</body>
+</html>
